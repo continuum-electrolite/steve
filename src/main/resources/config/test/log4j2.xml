@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
-
     <Properties>
-        <Property name="logPattern">[%-5p] %d %c (%t) - %m%n</Property>
+        <Property name="logPattern">[%-5p] %d %C{1}.%M(%F:%L) - %m%n</Property>
     </Properties>
 
     <Appenders>
@@ -10,25 +9,30 @@
             <PatternLayout pattern="${logPattern}"/>
         </Console>
     </Appenders>
+    <Appenders>
+        <RollingRandomAccessFile name="FILE"
+                                 fileName="./logs/steve.log"
+                                 filePattern="./logs/steve-%d{yyyy-MM-dd}-%i.log.gz"
+                                 immediateFlush="false"
+                                 append="true">
+            <PatternLayout pattern="${logPattern}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="20"/>
+        </RollingRandomAccessFile>
+    </Appenders>
 
     <Loggers>
         <!-- Disable the Jooq logo in logs -->
         <!-- https://github.com/jOOQ/jOOQ/issues/4019 -->
         <AsyncLogger name="org.jooq.Constants" level="WARN"/>
-
-        <AsyncLogger name="org.apache.cxf" level="INFO"/>
-        <AsyncLogger name="org.eclipse.jetty" level="INFO"/>
-        <AsyncLogger name="com.zaxxer.hikari" level="INFO"/>
-        <AsyncLogger name="org.springframework" level="INFO"/>
-        <AsyncLogger name="org.springframework.security" level="INFO"/>
-        <AsyncLogger name="org.springframework.web.servlet" level="INFO"/>
-
         <AsyncLogger name="org.apache.jasper" level="WARN"/>
         <AsyncLogger name="org.apache.tomcat.util" level="WARN"/>
         <AsyncLogger name="jndi" level="WARN"/>
-
-        <AsyncRoot level="DEBUG">
-            <AppenderRef ref="CONSOLE"/>
+        <AsyncRoot level="INFO">
+            <AppenderRef ref="FILE"/>
         </AsyncRoot>
     </Loggers>
 </Configuration>

@@ -31,6 +31,7 @@ import de.rwth.idsg.steve.ocpp.task.ResetTask;
 import de.rwth.idsg.steve.ocpp.task.UnlockConnectorTask;
 import de.rwth.idsg.steve.ocpp.task.UpdateFirmwareTask;
 import de.rwth.idsg.steve.repository.TaskStore;
+import de.rwth.idsg.steve.repository.dto.ChargePointSelect;
 import de.rwth.idsg.steve.web.dto.ocpp.ChangeAvailabilityParams;
 import de.rwth.idsg.steve.web.dto.ocpp.ChangeConfigurationParams;
 import de.rwth.idsg.steve.web.dto.ocpp.GetDiagnosticsParams;
@@ -44,7 +45,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
+import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
 /**
@@ -137,16 +140,26 @@ public class ChargePointService12_Client {
     // -------------------------------------------------------------------------
 
     public int remoteStartTransaction(RemoteStartTransactionParams params) {
+        log.info("Processing start transaction request for idTag: {}, connectionId: {} and chargeBox: {}",
+                params.getIdTag(), params.getConnectorId(), logChargeBoxInfo(params.getChargePointSelectList()));
         RemoteStartTransactionTask task = new RemoteStartTransactionTask(getVersion(), params);
 
         BackgroundService.with(executorService)
                          .forFirst(task.getParams().getChargePointSelectList())
                          .execute(c -> getOcpp12Invoker().remoteStartTransaction(c, task));
-
         return taskStore.add(task);
     }
 
+    private ChargePointSelect logChargeBoxInfo(List<ChargePointSelect> chargePointSelectList) {
+        if (!CollectionUtils.isEmpty(chargePointSelectList)) {
+            return chargePointSelectList.get(0);
+        }
+        return null;
+    }
+
     public int remoteStopTransaction(RemoteStopTransactionParams params) {
+        log.info("Processing stop transaction request for transactionId: {}, and chargeBox: {}",
+                params.getTransactionId(), logChargeBoxInfo(params.getChargePointSelectList()));
         RemoteStopTransactionTask task = new RemoteStopTransactionTask(getVersion(), params);
 
         BackgroundService.with(executorService)

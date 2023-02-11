@@ -89,8 +89,9 @@ public abstract class CommunicationTask<S extends ChargePointSelection, RESPONSE
         for (ChargePointSelect cps : cpsList) {
             resultMap.put(cps.getChargeBoxId(), new RequestResult());
         }
-
-        callbackList.add(defaultCallback());
+        OcppCallback<RESPONSE> defaultCallback = defaultCallback();
+        log.info("Default callback: {}", defaultCallback.getClass());
+        callbackList.add(defaultCallback);
         operationName = StringUtils.getOperationName(this);
     }
 

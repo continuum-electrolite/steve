@@ -25,32 +25,30 @@ import de.rwth.idsg.steve.repository.ChargePointRepository;
 import de.rwth.idsg.steve.repository.dto.ChargePoint;
 import de.rwth.idsg.steve.repository.dto.ChargePointSelect;
 import de.rwth.idsg.steve.repository.dto.ConnectorStatus;
+import de.rwth.idsg.steve.utils.CustomDSL;
 import de.rwth.idsg.steve.utils.DateTimeUtils;
+import de.rwth.idsg.steve.web.dto.ChargePointDetailsDTO;
 import de.rwth.idsg.steve.web.dto.ChargePointForm;
 import de.rwth.idsg.steve.web.dto.ChargePointQueryForm;
 import de.rwth.idsg.steve.web.dto.ConnectorStatusForm;
+import jooq.steve.db.tables.ChargeBox;
+import jooq.steve.db.tables.Connector;
 import jooq.steve.db.tables.records.AddressRecord;
 import jooq.steve.db.tables.records.ChargeBoxRecord;
 import lombok.extern.slf4j.Slf4j;
 import ocpp.cs._2015._10.RegistrationStatus;
+import org.apache.cxf.common.util.CollectionUtils;
+import org.jetbrains.annotations.NotNull;
 import org.joda.time.DateTime;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.Record1;
-import org.jooq.Record5;
-import org.jooq.Result;
-import org.jooq.SelectConditionStep;
-import org.jooq.SelectQuery;
-import org.jooq.Table;
+import org.jooq.*;
 import org.jooq.exception.DataAccessException;
 import org.jooq.impl.DSL;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static de.rwth.idsg.steve.utils.CustomDSL.date;
@@ -66,7 +64,6 @@ import static jooq.steve.db.tables.ConnectorStatus.CONNECTOR_STATUS;
 @Slf4j
 @Repository
 public class ChargePointRepositoryImpl implements ChargePointRepository {
-
     private final DSLContext ctx;
     private final AddressRepository addressRepository;
 
@@ -76,301 +73,231 @@ public class ChargePointRepositoryImpl implements ChargePointRepository {
         this.addressRepository = addressRepository;
     }
 
-    @Override
     public Optional<String> getRegistrationStatus(String chargeBoxId) {
-        String status = ctx.select(CHARGE_BOX.REGISTRATION_STATUS)
-                           .from(CHARGE_BOX)
-                           .where(CHARGE_BOX.CHARGE_BOX_ID.eq(chargeBoxId))
-                           .fetchOne(CHARGE_BOX.REGISTRATION_STATUS);
-
+        String status = (String)this.ctx.select(ChargeBox.CHARGE_BOX.REGISTRATION_STATUS).from(ChargeBox.CHARGE_BOX).where(ChargeBox.CHARGE_BOX.CHARGE_BOX_ID.eq(chargeBoxId)).fetchOne(ChargeBox.CHARGE_BOX.REGISTRATION_STATUS);
         return Optional.ofNullable(status);
     }
 
-    @Override
     public List<ChargePointSelect> getChargePointSelect(OcppProtocol protocol, List<String> inStatusFilter) {
-        return ctx.select(CHARGE_BOX.CHARGE_BOX_ID, CHARGE_BOX.ENDPOINT_ADDRESS)
-                  .from(CHARGE_BOX)
-                  .where(CHARGE_BOX.OCPP_PROTOCOL.equal(protocol.getCompositeValue()))
-                  .and(CHARGE_BOX.ENDPOINT_ADDRESS.isNotNull())
-                  .and(CHARGE_BOX.REGISTRATION_STATUS.in(inStatusFilter))
-                  .fetch()
-                  .map(r -> new ChargePointSelect(protocol.getTransport(), r.value1(), r.value2()));
+        return this.ctx.select(ChargeBox.CHARGE_BOX.CHARGE_BOX_ID, ChargeBox.CHARGE_BOX.ENDPOINT_ADDRESS).from(ChargeBox.CHARGE_BOX).where(ChargeBox.CHARGE_BOX.OCPP_PROTOCOL.equal(protocol.getCompositeValue())).and(ChargeBox.CHARGE_BOX.ENDPOINT_ADDRESS.isNotNull()).and(ChargeBox.CHARGE_BOX.REGISTRATION_STATUS.in(inStatusFilter)).fetch().map((r) -> {
+            return new ChargePointSelect(protocol.getTransport(), (String)r.value1(), (String)r.value2());
+        });
     }
 
-    @Override
     public List<String> getChargeBoxIds() {
-        return ctx.select(CHARGE_BOX.CHARGE_BOX_ID)
-                  .from(CHARGE_BOX)
-                  .fetch(CHARGE_BOX.CHARGE_BOX_ID);
+        return this.ctx.select(ChargeBox.CHARGE_BOX.CHARGE_BOX_ID).from(ChargeBox.CHARGE_BOX).fetch(ChargeBox.CHARGE_BOX.CHARGE_BOX_ID);
     }
 
-    @Override
     public Map<String, Integer> getChargeBoxIdPkPair(List<String> chargeBoxIdList) {
-        return ctx.select(CHARGE_BOX.CHARGE_BOX_ID, CHARGE_BOX.CHARGE_BOX_PK)
-                  .from(CHARGE_BOX)
-                  .where(CHARGE_BOX.CHARGE_BOX_ID.in(chargeBoxIdList))
-                  .fetchMap(CHARGE_BOX.CHARGE_BOX_ID, CHARGE_BOX.CHARGE_BOX_PK);
+        return this.ctx.select(ChargeBox.CHARGE_BOX.CHARGE_BOX_ID, ChargeBox.CHARGE_BOX.CHARGE_BOX_PK).from(ChargeBox.CHARGE_BOX).where(ChargeBox.CHARGE_BOX.CHARGE_BOX_ID.in(chargeBoxIdList)).fetchMap(ChargeBox.CHARGE_BOX.CHARGE_BOX_ID, ChargeBox.CHARGE_BOX.CHARGE_BOX_PK);
     }
 
-    @Override
     public List<ChargePoint.Overview> getOverview(ChargePointQueryForm form) {
-        return getOverviewInternal(form)
-                .map(r -> ChargePoint.Overview.builder()
-                                              .chargeBoxPk(r.value1())
-                                              .chargeBoxId(r.value2())
-                                              .description(r.value3())
-                                              .ocppProtocol(r.value4())
-                                              .lastHeartbeatTimestampDT(r.value5())
-                                              .lastHeartbeatTimestamp(DateTimeUtils.humanize(r.value5()))
-                                              .build()
-                );
+        return this.getOverviewInternal(form).map((r) -> {
+            return ChargePoint.Overview.builder().chargeBoxPk((Integer)r.value1()).chargeBoxId((String)r.value2()).description((String)r.value3()).ocppProtocol((String)r.value4()).lastHeartbeatTimestampDT((DateTime)r.value5()).lastHeartbeatTimestamp(DateTimeUtils.humanize((DateTime)r.value5())).build();
+        });
     }
 
-    @SuppressWarnings("unchecked")
     private Result<Record5<Integer, String, String, String, DateTime>> getOverviewInternal(ChargePointQueryForm form) {
-        SelectQuery selectQuery = ctx.selectQuery();
-        selectQuery.addFrom(CHARGE_BOX);
-        selectQuery.addSelect(
-                CHARGE_BOX.CHARGE_BOX_PK,
-                CHARGE_BOX.CHARGE_BOX_ID,
-                CHARGE_BOX.DESCRIPTION,
-                CHARGE_BOX.OCPP_PROTOCOL,
-                CHARGE_BOX.LAST_HEARTBEAT_TIMESTAMP
-        );
-
+        SelectQuery selectQuery = this.ctx.selectQuery();
+        selectQuery.addFrom(ChargeBox.CHARGE_BOX);
+        selectQuery.addSelect(new SelectFieldOrAsterisk[]{ChargeBox.CHARGE_BOX.CHARGE_BOX_PK, ChargeBox.CHARGE_BOX.CHARGE_BOX_ID, ChargeBox.CHARGE_BOX.DESCRIPTION, ChargeBox.CHARGE_BOX.OCPP_PROTOCOL, ChargeBox.CHARGE_BOX.LAST_HEARTBEAT_TIMESTAMP});
         if (form.isSetOcppVersion()) {
-
-            // http://dev.mysql.com/doc/refman/5.7/en/pattern-matching.html
-            selectQuery.addConditions(CHARGE_BOX.OCPP_PROTOCOL.like(form.getOcppVersion().getValue() + "_"));
+            selectQuery.addConditions(ChargeBox.CHARGE_BOX.OCPP_PROTOCOL.like(form.getOcppVersion().getValue() + "_"));
         }
 
         if (form.isSetDescription()) {
-            selectQuery.addConditions(includes(CHARGE_BOX.DESCRIPTION, form.getDescription()));
+            selectQuery.addConditions(CustomDSL.includes(ChargeBox.CHARGE_BOX.DESCRIPTION, form.getDescription()));
         }
 
         if (form.isSetChargeBoxId()) {
-            selectQuery.addConditions(includes(CHARGE_BOX.CHARGE_BOX_ID, form.getChargeBoxId()));
+            selectQuery.addConditions(CustomDSL.includes(ChargeBox.CHARGE_BOX.CHARGE_BOX_ID, form.getChargeBoxId()));
         }
 
         switch (form.getHeartbeatPeriod()) {
             case ALL:
                 break;
-
             case TODAY:
-                selectQuery.addConditions(
-                        date(CHARGE_BOX.LAST_HEARTBEAT_TIMESTAMP).eq(date(DateTime.now()))
-                );
+                selectQuery.addConditions(CustomDSL.date(ChargeBox.CHARGE_BOX.LAST_HEARTBEAT_TIMESTAMP).eq(CustomDSL.date(DateTime.now())));
                 break;
-
             case YESTERDAY:
-                selectQuery.addConditions(
-                        date(CHARGE_BOX.LAST_HEARTBEAT_TIMESTAMP).eq(date(DateTime.now().minusDays(1)))
-                );
+                selectQuery.addConditions(CustomDSL.date(ChargeBox.CHARGE_BOX.LAST_HEARTBEAT_TIMESTAMP).eq(CustomDSL.date(DateTime.now().minusDays(1))));
                 break;
-
             case EARLIER:
-                selectQuery.addConditions(
-                        date(CHARGE_BOX.LAST_HEARTBEAT_TIMESTAMP).lessThan(date(DateTime.now().minusDays(1)))
-                );
+                selectQuery.addConditions(CustomDSL.date(ChargeBox.CHARGE_BOX.LAST_HEARTBEAT_TIMESTAMP).lessThan(CustomDSL.date(DateTime.now().minusDays(1))));
                 break;
-
             default:
                 throw new SteveException("Unknown enum type");
         }
 
-        // Default order
-        selectQuery.addOrderBy(CHARGE_BOX.CHARGE_BOX_PK.asc());
-
+        selectQuery.addOrderBy(new OrderField[]{ChargeBox.CHARGE_BOX.CHARGE_BOX_PK.asc()});
         return selectQuery.fetch();
     }
 
-    @Override
     public ChargePoint.Details getDetails(int chargeBoxPk) {
-        ChargeBoxRecord cbr = ctx.selectFrom(CHARGE_BOX)
-                                 .where(CHARGE_BOX.CHARGE_BOX_PK.equal(chargeBoxPk))
-                                 .fetchOne();
-
+        ChargeBoxRecord cbr = (ChargeBoxRecord)this.ctx.selectFrom(ChargeBox.CHARGE_BOX).where(ChargeBox.CHARGE_BOX.CHARGE_BOX_PK.equal(chargeBoxPk)).fetchOne();
         if (cbr == null) {
             throw new SteveException("Charge point not found");
-        }
-
-        AddressRecord ar = addressRepository.get(ctx, cbr.getAddressPk());
-
-        return new ChargePoint.Details(cbr, ar);
-    }
-
-    @Override
-    public List<ConnectorStatus> getChargePointConnectorStatus(ConnectorStatusForm form) {
-        // find out the latest timestamp for each connector
-        Field<Integer> t1Pk = CONNECTOR_STATUS.CONNECTOR_PK.as("t1_pk");
-        Field<DateTime> t1TsMax = DSL.max(CONNECTOR_STATUS.STATUS_TIMESTAMP).as("t1_ts_max");
-        Table<?> t1 = ctx.select(t1Pk, t1TsMax)
-                         .from(CONNECTOR_STATUS)
-                         .groupBy(CONNECTOR_STATUS.CONNECTOR_PK)
-                         .asTable("t1");
-
-        // get the status table with latest timestamps only
-        Field<Integer> t2Pk = CONNECTOR_STATUS.CONNECTOR_PK.as("t2_pk");
-        Field<DateTime> t2Ts = CONNECTOR_STATUS.STATUS_TIMESTAMP.as("t2_ts");
-        Field<String> t2Status = CONNECTOR_STATUS.STATUS.as("t2_status");
-        Field<String> t2Error = CONNECTOR_STATUS.ERROR_CODE.as("t2_error");
-        Table<?> t2 = ctx.selectDistinct(t2Pk, t2Ts, t2Status, t2Error)
-                         .from(CONNECTOR_STATUS)
-                         .join(t1)
-                            .on(CONNECTOR_STATUS.CONNECTOR_PK.equal(t1.field(t1Pk)))
-                            .and(CONNECTOR_STATUS.STATUS_TIMESTAMP.equal(t1.field(t1TsMax)))
-                         .asTable("t2");
-
-        // https://github.com/RWTH-i5-IDSG/steve/issues/691
-        Condition chargeBoxCondition = CHARGE_BOX.REGISTRATION_STATUS.eq(RegistrationStatus.ACCEPTED.value());
-
-        if (form != null && form.getChargeBoxId() != null) {
-            chargeBoxCondition = chargeBoxCondition.and(CHARGE_BOX.CHARGE_BOX_ID.eq(form.getChargeBoxId()));
-        }
-
-        final Condition statusCondition;
-        if (form == null || form.getStatus() == null) {
-            statusCondition = DSL.noCondition();
         } else {
-            statusCondition = t2.field(t2Status).eq(form.getStatus());
+            AddressRecord ar = this.addressRepository.get(this.ctx, cbr.getAddressPk());
+            return new ChargePoint.Details(cbr, ar);
+        }
+    }
+
+    public ChargePointDetailsDTO getChargePointDetails(int chargeBoxPK) {
+        ChargeBoxRecord cbr = (ChargeBoxRecord)this.ctx.selectFrom(ChargeBox.CHARGE_BOX).where(ChargeBox.CHARGE_BOX.CHARGE_BOX_PK.equal(chargeBoxPK)).fetchOne();
+        if (cbr == null) {
+            throw new SteveException("Charge point not found");
+        } else {
+            ChargePointDetailsDTO chargePointDetailsDTO = buildChargePointDetailsDTO(cbr);
+            chargePointDetailsDTO.setAddress(buildAddressDTO(this.addressRepository.get(this.ctx, cbr.getAddressPk())));
+            return chargePointDetailsDTO;
+        }
+    }
+
+    public List<ConnectorStatus> getChargePointConnectorStatus(ConnectorStatusForm form) {
+        Field<Integer> t1Pk = jooq.steve.db.tables.ConnectorStatus.CONNECTOR_STATUS.CONNECTOR_PK.as("t1_pk");
+        Field<DateTime> t1TsMax = DSL.max(jooq.steve.db.tables.ConnectorStatus.CONNECTOR_STATUS.STATUS_TIMESTAMP).as("t1_ts_max");
+        Table<?> t1 = this.ctx.select(t1Pk, t1TsMax).from(jooq.steve.db.tables.ConnectorStatus.CONNECTOR_STATUS).groupBy(new GroupField[]{jooq.steve.db.tables.ConnectorStatus.CONNECTOR_STATUS.CONNECTOR_PK}).asTable("t1");
+        Field<Integer> t2Pk = jooq.steve.db.tables.ConnectorStatus.CONNECTOR_STATUS.CONNECTOR_PK.as("t2_pk");
+        Field<DateTime> t2Ts = jooq.steve.db.tables.ConnectorStatus.CONNECTOR_STATUS.STATUS_TIMESTAMP.as("t2_ts");
+        Field<String> t2Status = jooq.steve.db.tables.ConnectorStatus.CONNECTOR_STATUS.STATUS.as("t2_status");
+        Field<String> t2Error = jooq.steve.db.tables.ConnectorStatus.CONNECTOR_STATUS.ERROR_CODE.as("t2_error");
+        Table<?> t2 = this.ctx.selectDistinct(t2Pk, t2Ts, t2Status, t2Error).from(jooq.steve.db.tables.ConnectorStatus.CONNECTOR_STATUS).join(t1).on(jooq.steve.db.tables.ConnectorStatus.CONNECTOR_STATUS.CONNECTOR_PK.equal(t1.field(t1Pk))).and(jooq.steve.db.tables.ConnectorStatus.CONNECTOR_STATUS.STATUS_TIMESTAMP.equal(t1.field(t1TsMax))).asTable("t2");
+        Condition chargeBoxCondition = ChargeBox.CHARGE_BOX.REGISTRATION_STATUS.eq(RegistrationStatus.ACCEPTED.value());
+        if (form != null && form.getChargeBoxId() != null) {
+            chargeBoxCondition = chargeBoxCondition.and(ChargeBox.CHARGE_BOX.CHARGE_BOX_ID.eq(form.getChargeBoxId()));
         }
 
-        return ctx.select(
-                        CHARGE_BOX.CHARGE_BOX_PK,
-                        CONNECTOR.CHARGE_BOX_ID,
-                        CONNECTOR.CONNECTOR_ID,
-                        t2.field(t2Ts),
-                        t2.field(t2Status),
-                        t2.field(t2Error),
-                        CHARGE_BOX.OCPP_PROTOCOL)
-                  .from(t2)
-                  .join(CONNECTOR)
-                        .on(CONNECTOR.CONNECTOR_PK.eq(t2.field(t2Pk)))
-                  .join(CHARGE_BOX)
-                        .on(CHARGE_BOX.CHARGE_BOX_ID.eq(CONNECTOR.CHARGE_BOX_ID))
-                  .where(chargeBoxCondition, statusCondition)
-                  .orderBy(t2.field(t2Ts).desc())
-                  .fetch()
-                  .map(r -> ConnectorStatus.builder()
-                                           .chargeBoxPk(r.value1())
-                                           .chargeBoxId(r.value2())
-                                           .connectorId(r.value3())
-                                           .timeStamp(DateTimeUtils.humanize(r.value4()))
-                                           .statusTimestamp(r.value4())
-                                           .status(r.value5())
-                                           .errorCode(r.value6())
-                                           .ocppProtocol(r.value7() == null ? null : OcppProtocol.fromCompositeValue(r.value7()))
-                                           .build()
-                  );
+        Condition statusCondition;
+        if (form != null && form.getStatus() != null) {
+            statusCondition = t2.field(t2Status).eq(form.getStatus());
+        } else {
+            statusCondition = DSL.noCondition();
+        }
+
+        return this.ctx.select(ChargeBox.CHARGE_BOX.CHARGE_BOX_PK, Connector.CONNECTOR.CHARGE_BOX_ID, Connector.CONNECTOR.CONNECTOR_ID, t2.field(t2Ts), t2.field(t2Status), t2.field(t2Error), ChargeBox.CHARGE_BOX.OCPP_PROTOCOL).from(t2).join(Connector.CONNECTOR).on(Connector.CONNECTOR.CONNECTOR_PK.eq(t2.field(t2Pk))).join(ChargeBox.CHARGE_BOX).on(ChargeBox.CHARGE_BOX.CHARGE_BOX_ID.eq(Connector.CONNECTOR.CHARGE_BOX_ID)).where(new Condition[]{chargeBoxCondition, statusCondition}).orderBy(t2.field(t2Ts).desc()).fetch().map((r) -> {
+            return ConnectorStatus.builder().chargeBoxPk((Integer)r.value1()).chargeBoxId((String)r.value2()).connectorId((Integer)r.value3()).timeStamp(DateTimeUtils.humanize((DateTime)r.value4())).statusTimestamp((DateTime)r.value4()).status((String)r.value5()).errorCode((String)r.value6()).ocppProtocol(r.value7() == null ? null : OcppProtocol.fromCompositeValue((String)r.value7())).build();
+        });
     }
 
-    @Override
     public List<Integer> getNonZeroConnectorIds(String chargeBoxId) {
-        return ctx.select(CONNECTOR.CONNECTOR_ID)
-                  .from(CONNECTOR)
-                  .where(CONNECTOR.CHARGE_BOX_ID.equal(chargeBoxId))
-                  .and(CONNECTOR.CONNECTOR_ID.notEqual(0))
-                  .fetch(CONNECTOR.CONNECTOR_ID);
+        return this.ctx.select(Connector.CONNECTOR.CONNECTOR_ID).from(Connector.CONNECTOR).where(Connector.CONNECTOR.CHARGE_BOX_ID.equal(chargeBoxId)).and(Connector.CONNECTOR.CONNECTOR_ID.notEqual(0)).fetch(Connector.CONNECTOR.CONNECTOR_ID);
     }
 
-    @Override
+    public List<ChargePointDetailsDTO> list(String status) {
+        try {
+            Result<ChargeBoxRecord> cbr = this.ctx.selectFrom(ChargeBox.CHARGE_BOX).where(ChargeBox.CHARGE_BOX.REGISTRATION_STATUS.eq(status)).fetch();
+            return CollectionUtils.isEmpty(cbr) ? Collections.emptyList() : (List)cbr.parallelStream().filter(Objects::nonNull).map((chargeBoxRecord) -> {
+                ChargePointDetailsDTO chargePointDetailsDTO = buildChargePointDetailsDTO(chargeBoxRecord);
+                chargePointDetailsDTO.setAddress(buildAddressDTO(this.addressRepository.get(this.ctx, chargeBoxRecord.getAddressPk())));
+                return chargePointDetailsDTO;
+            }).collect(Collectors.toList());
+        } catch (Exception var3) {
+            log.error("Exception while listing charge_box details: ", var3);
+            return Collections.emptyList();
+        }
+    }
+
+    private static ChargePointDetailsDTO.Address buildAddressDTO(AddressRecord addressRecord) {
+        if (Objects.nonNull(addressRecord)) {
+            ChargePointDetailsDTO.Address address = new ChargePointDetailsDTO.Address();
+            address.setCity(addressRecord.getCity());
+            address.setStreet(addressRecord.getStreet());
+            address.setZipCode(addressRecord.getZipCode());
+            address.setHouseNumber(address.getHouseNumber());
+            address.setCountry(address.getCountry());
+            return address;
+        } else {
+            return null;
+        }
+    }
+
+    private static @NotNull ChargePointDetailsDTO buildChargePointDetailsDTO(ChargeBoxRecord chargeBoxRecord) {
+        ChargePointDetailsDTO chargePointDetailsDTO = new ChargePointDetailsDTO();
+        chargePointDetailsDTO.setChargeBoxPKId(chargeBoxRecord.getChargeBoxPk());
+        chargePointDetailsDTO.setChargeBoxId(chargeBoxRecord.getChargeBoxId());
+        chargePointDetailsDTO.setDescription(chargeBoxRecord.getDescription());
+        chargePointDetailsDTO.setLatitude(chargeBoxRecord.getLocationLatitude() != null ? chargeBoxRecord.getLocationLatitude().doubleValue() : 0.0);
+        chargePointDetailsDTO.setLongitude(chargeBoxRecord.getLocationLongitude() != null ? chargeBoxRecord.getLocationLongitude().doubleValue() : 0.0);
+        chargePointDetailsDTO.setAdminAddress(chargeBoxRecord.getAdminAddress());
+        chargePointDetailsDTO.setOCPPProtocol(chargeBoxRecord.getOcppProtocol());
+        chargePointDetailsDTO.setVendor(chargeBoxRecord.getChargePointVendor());
+        chargePointDetailsDTO.setModel(chargeBoxRecord.getChargePointModel());
+        chargePointDetailsDTO.setSerialNumber(chargeBoxRecord.getChargePointSerialNumber());
+        chargePointDetailsDTO.setBoxSerialNumber(chargeBoxRecord.getChargeBoxSerialNumber());
+        chargePointDetailsDTO.setFirmWareVersion(chargeBoxRecord.getFwVersion());
+        chargePointDetailsDTO.setFirmWareUpdateStatus(chargeBoxRecord.getFwUpdateStatus());
+        chargePointDetailsDTO.setFirmWareUpdatedTime(DateTimeUtils.toJavaLocalDateTime(chargeBoxRecord.getFwUpdateTimestamp()));
+        chargePointDetailsDTO.setIccid(chargeBoxRecord.getIccid());
+        chargePointDetailsDTO.setImsi(chargeBoxRecord.getImsi());
+        chargePointDetailsDTO.setMeterType(chargeBoxRecord.getMeterType());
+        chargePointDetailsDTO.setMeterSerialNumber(chargeBoxRecord.getMeterSerialNumber());
+        chargePointDetailsDTO.setDiagnosticsStatus(chargeBoxRecord.getDiagnosticsStatus());
+        chargePointDetailsDTO.setDiagnosticsTime(DateTimeUtils.toJavaLocalDateTime(chargeBoxRecord.getDiagnosticsTimestamp()));
+        chargePointDetailsDTO.setLastHeartBeatTime(DateTimeUtils.toJavaLocalDateTime(chargeBoxRecord.getLastHeartbeatTimestamp()));
+        return chargePointDetailsDTO;
+    }
+
     public void addChargePointList(List<String> chargeBoxIdList) {
-        List<ChargeBoxRecord> batch = chargeBoxIdList.stream()
-                                                     .map(s -> ctx.newRecord(CHARGE_BOX)
-                                                                  .setChargeBoxId(s)
-                                                                  .setInsertConnectorStatusAfterTransactionMsg(false))
-                                                     .collect(Collectors.toList());
-
-        ctx.batchInsert(batch).execute();
+        List<ChargeBoxRecord> batch = (List)chargeBoxIdList.stream().map((s) -> {
+            return ((ChargeBoxRecord)this.ctx.newRecord(ChargeBox.CHARGE_BOX)).setChargeBoxId(s).setInsertConnectorStatusAfterTransactionMsg(false);
+        }).collect(Collectors.toList());
+        this.ctx.batchInsert(batch).execute();
     }
 
-    @Override
     public int addChargePoint(ChargePointForm form) {
-        return ctx.transactionResult(configuration -> {
+        return (Integer)this.ctx.transactionResult((configuration) -> {
             DSLContext ctx = DSL.using(configuration);
-            try {
-                Integer addressId = addressRepository.updateOrInsert(ctx, form.getAddress());
-                return addChargePointInternal(ctx, form, addressId);
 
-            } catch (DataAccessException e) {
-                throw new SteveException("Failed to add the charge point with chargeBoxId '%s'",
-                        form.getChargeBoxId(), e);
+            try {
+                Integer addressId = this.addressRepository.updateOrInsert(ctx, form.getAddress());
+                return this.addChargePointInternal(ctx, form, addressId);
+            } catch (DataAccessException var5) {
+                throw new SteveException("Failed to add the charge point with chargeBoxId '%s'", form.getChargeBoxId(), var5);
             }
         });
     }
 
-    @Override
     public void updateChargePoint(ChargePointForm form) {
-        ctx.transaction(configuration -> {
+        this.ctx.transaction((configuration) -> {
             DSLContext ctx = DSL.using(configuration);
-            try {
-                Integer addressId = addressRepository.updateOrInsert(ctx, form.getAddress());
-                updateChargePointInternal(ctx, form, addressId);
 
-            } catch (DataAccessException e) {
-                throw new SteveException("Failed to update the charge point with chargeBoxId '%s'",
-                        form.getChargeBoxId(), e);
+            try {
+                Integer addressId = this.addressRepository.updateOrInsert(ctx, form.getAddress());
+                this.updateChargePointInternal(ctx, form, addressId);
+            } catch (DataAccessException var5) {
+                throw new SteveException("Failed to update the charge point with chargeBoxId '%s'", form.getChargeBoxId(), var5);
             }
         });
     }
 
-    @Override
     public void deleteChargePoint(int chargeBoxPk) {
-        ctx.transaction(configuration -> {
+        this.ctx.transaction((configuration) -> {
             DSLContext ctx = DSL.using(configuration);
-            try {
-                addressRepository.delete(ctx, selectAddressId(chargeBoxPk));
-                deleteChargePointInternal(ctx, chargeBoxPk);
 
-            } catch (DataAccessException e) {
-                throw new SteveException("Failed to delete the charge point", e);
+            try {
+                this.addressRepository.delete(ctx, this.selectAddressId(chargeBoxPk));
+                this.deleteChargePointInternal(ctx, chargeBoxPk);
+            } catch (DataAccessException var5) {
+                throw new SteveException("Failed to delete the charge point", var5);
             }
         });
     }
-
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
 
     private SelectConditionStep<Record1<Integer>> selectAddressId(int chargeBoxPk) {
-        return ctx.select(CHARGE_BOX.ADDRESS_PK)
-                  .from(CHARGE_BOX)
-                  .where(CHARGE_BOX.CHARGE_BOX_PK.eq(chargeBoxPk));
+        return this.ctx.select(ChargeBox.CHARGE_BOX.ADDRESS_PK).from(ChargeBox.CHARGE_BOX).where(ChargeBox.CHARGE_BOX.CHARGE_BOX_PK.eq(chargeBoxPk));
     }
 
     private int addChargePointInternal(DSLContext ctx, ChargePointForm form, Integer addressPk) {
-        return ctx.insertInto(CHARGE_BOX)
-                  .set(CHARGE_BOX.CHARGE_BOX_ID, form.getChargeBoxId())
-                  .set(CHARGE_BOX.DESCRIPTION, form.getDescription())
-                  .set(CHARGE_BOX.LOCATION_LATITUDE, form.getLocationLatitude())
-                  .set(CHARGE_BOX.LOCATION_LONGITUDE, form.getLocationLongitude())
-                  .set(CHARGE_BOX.INSERT_CONNECTOR_STATUS_AFTER_TRANSACTION_MSG, form.getInsertConnectorStatusAfterTransactionMsg())
-                  .set(CHARGE_BOX.REGISTRATION_STATUS, form.getRegistrationStatus())
-                  .set(CHARGE_BOX.NOTE, form.getNote())
-                  .set(CHARGE_BOX.ADMIN_ADDRESS, form.getAdminAddress())
-                  .set(CHARGE_BOX.ADDRESS_PK, addressPk)
-                  .returning(CHARGE_BOX.CHARGE_BOX_PK)
-                  .fetchOne()
-                  .getChargeBoxPk();
+        return ((ChargeBoxRecord)ctx.insertInto(ChargeBox.CHARGE_BOX).set(ChargeBox.CHARGE_BOX.CHARGE_BOX_ID, form.getChargeBoxId()).set(ChargeBox.CHARGE_BOX.DESCRIPTION, form.getDescription()).set(ChargeBox.CHARGE_BOX.LOCATION_LATITUDE, form.getLocationLatitude()).set(ChargeBox.CHARGE_BOX.LOCATION_LONGITUDE, form.getLocationLongitude()).set(ChargeBox.CHARGE_BOX.INSERT_CONNECTOR_STATUS_AFTER_TRANSACTION_MSG, form.getInsertConnectorStatusAfterTransactionMsg()).set(ChargeBox.CHARGE_BOX.REGISTRATION_STATUS, form.getRegistrationStatus()).set(ChargeBox.CHARGE_BOX.NOTE, form.getNote()).set(ChargeBox.CHARGE_BOX.ADMIN_ADDRESS, form.getAdminAddress()).set(ChargeBox.CHARGE_BOX.ADDRESS_PK, addressPk).returning(new SelectFieldOrAsterisk[]{ChargeBox.CHARGE_BOX.CHARGE_BOX_PK}).fetchOne()).getChargeBoxPk();
     }
 
     private void updateChargePointInternal(DSLContext ctx, ChargePointForm form, Integer addressPk) {
-        ctx.update(CHARGE_BOX)
-           .set(CHARGE_BOX.DESCRIPTION, form.getDescription())
-           .set(CHARGE_BOX.LOCATION_LATITUDE, form.getLocationLatitude())
-           .set(CHARGE_BOX.LOCATION_LONGITUDE, form.getLocationLongitude())
-           .set(CHARGE_BOX.INSERT_CONNECTOR_STATUS_AFTER_TRANSACTION_MSG, form.getInsertConnectorStatusAfterTransactionMsg())
-           .set(CHARGE_BOX.REGISTRATION_STATUS, form.getRegistrationStatus())
-           .set(CHARGE_BOX.NOTE, form.getNote())
-           .set(CHARGE_BOX.ADMIN_ADDRESS, form.getAdminAddress())
-           .set(CHARGE_BOX.ADDRESS_PK, addressPk)
-           .where(CHARGE_BOX.CHARGE_BOX_PK.equal(form.getChargeBoxPk()))
-           .execute();
+        ctx.update(ChargeBox.CHARGE_BOX).set(ChargeBox.CHARGE_BOX.DESCRIPTION, form.getDescription()).set(ChargeBox.CHARGE_BOX.LOCATION_LATITUDE, form.getLocationLatitude()).set(ChargeBox.CHARGE_BOX.LOCATION_LONGITUDE, form.getLocationLongitude()).set(ChargeBox.CHARGE_BOX.INSERT_CONNECTOR_STATUS_AFTER_TRANSACTION_MSG, form.getInsertConnectorStatusAfterTransactionMsg()).set(ChargeBox.CHARGE_BOX.REGISTRATION_STATUS, form.getRegistrationStatus()).set(ChargeBox.CHARGE_BOX.NOTE, form.getNote()).set(ChargeBox.CHARGE_BOX.ADMIN_ADDRESS, form.getAdminAddress()).set(ChargeBox.CHARGE_BOX.ADDRESS_PK, addressPk).where(ChargeBox.CHARGE_BOX.CHARGE_BOX_PK.equal(form.getChargeBoxPk())).execute();
     }
 
     private void deleteChargePointInternal(DSLContext ctx, int chargeBoxPk) {
-        ctx.delete(CHARGE_BOX)
-           .where(CHARGE_BOX.CHARGE_BOX_PK.equal(chargeBoxPk))
-           .execute();
+        ctx.delete(ChargeBox.CHARGE_BOX).where(ChargeBox.CHARGE_BOX.CHARGE_BOX_PK.equal(chargeBoxPk)).execute();
     }
 }

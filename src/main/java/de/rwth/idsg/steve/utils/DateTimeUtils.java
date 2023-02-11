@@ -38,61 +38,35 @@ import java.util.concurrent.TimeUnit;
  */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class DateTimeUtils {
-
     private static final DateTimeFormatter HUMAN_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd 'at' HH:mm");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm");
-
-    private static final PeriodFormatter PERIOD_FORMATTER = new PeriodFormatterBuilder()
-            .printZeroNever()
-            .appendDays().appendSuffix(" day", " days").appendSeparator(" ")
-            .appendHours().appendSuffix(" hour", " hours").appendSeparator(" ")
-            .appendMinutes().appendSuffix(" minute", " minutes").appendSeparator(" ")
-            .appendSeconds().appendSuffix(" second", " seconds")
-            .toFormatter();
+    private static final PeriodFormatter PERIOD_FORMATTER = (new PeriodFormatterBuilder()).printZeroNever().appendDays().appendSuffix(" day", " days").appendSeparator(" ").appendHours().appendSuffix(" hour", " hours").appendSeparator(" ").appendMinutes().appendSuffix(" minute", " minutes").appendSeparator(" ").appendSeconds().appendSuffix(" second", " seconds").toFormatter();
 
     public static DateTime toDateTime(LocalDateTime ldt) {
-        if (ldt == null) {
-            return null;
-        } else {
-            return ldt.toDateTime();
-        }
+        return ldt == null ? null : ldt.toDateTime();
     }
 
     public static LocalDateTime toLocalDateTime(DateTime dt) {
-        if (dt == null) {
-            return null;
-        } else {
-            return dt.toLocalDateTime();
-        }
+        return dt == null ? null : dt.toLocalDateTime();
     }
 
-    /**
-     * Print the date/time nicer, if it's from today, yesterday or tomorrow.
-     */
+    public static java.time.LocalDateTime toJavaLocalDateTime(DateTime dt) {
+        return dt == null ? null : java.time.LocalDateTime.of(dt.getYear(), dt.getMonthOfYear(), dt.getDayOfMonth(), dt.getHourOfDay(), dt.getMinuteOfHour(), dt.getSecondOfMinute(), dt.getMillisOfSecond());
+    }
+
     public static String humanize(DateTime dt) {
         if (dt == null) {
             return "";
-        }
-
-        // Equalize time fields before comparing date fields
-        DateTime inputAtMidnight = dt.withTimeAtStartOfDay();
-        DateTime todayAtMidnight = DateTime.now().withTimeAtStartOfDay();
-
-        // Is it today?
-        if (inputAtMidnight.equals(todayAtMidnight)) {
-            return "Today at " + TIME_FORMATTER.print(dt);
-
-        // Is it yesterday?
-        } else if (inputAtMidnight.equals(todayAtMidnight.minusDays(1))) {
-            return "Yesterday at " + TIME_FORMATTER.print(dt);
-
-        // Is it tomorrow?
-        } else if (inputAtMidnight.equals(todayAtMidnight.plusDays(1))) {
-            return "Tomorrow at " + TIME_FORMATTER.print(dt);
-
-        // So long ago OR in the future...
         } else {
-            return HUMAN_FORMATTER.print(dt);
+            DateTime inputAtMidnight = dt.withTimeAtStartOfDay();
+            DateTime todayAtMidnight = DateTime.now().withTimeAtStartOfDay();
+            if (inputAtMidnight.equals(todayAtMidnight)) {
+                return "Today at " + TIME_FORMATTER.print(dt);
+            } else if (inputAtMidnight.equals(todayAtMidnight.minusDays(1))) {
+                return "Yesterday at " + TIME_FORMATTER.print(dt);
+            } else {
+                return inputAtMidnight.equals(todayAtMidnight.plusDays(1)) ? "Tomorrow at " + TIME_FORMATTER.print(dt) : HUMAN_FORMATTER.print(dt);
+            }
         }
     }
 
@@ -102,18 +76,17 @@ public final class DateTimeUtils {
 
     public static void checkJavaAndMySQLOffsets(DSLContext ctx) {
         long sql = CustomDSL.selectOffsetFromUtcInSeconds(ctx);
-        long java = DateTimeUtils.getOffsetFromUtcInSeconds();
-
+        long java = getOffsetFromUtcInSeconds();
         if (sql != java) {
-            throw new SteveException("MySQL and Java are not using the same time zone. " +
-                    "Java offset in seconds (%s) != MySQL offset in seconds (%s)", java, sql);
+            throw new SteveException("MySQL and Java are not using the same time zone. Java offset in seconds (%s) != MySQL offset in seconds (%s)", java, sql);
         }
     }
 
     private static long getOffsetFromUtcInSeconds() {
         DateTimeZone timeZone = DateTimeZone.getDefault();
         DateTime now = DateTime.now();
-        long offsetInMilliseconds = timeZone.getOffset(now.getMillis());
+        long offsetInMilliseconds = (long)timeZone.getOffset(now.getMillis());
         return TimeUnit.MILLISECONDS.toSeconds(offsetInMilliseconds);
     }
+
 }

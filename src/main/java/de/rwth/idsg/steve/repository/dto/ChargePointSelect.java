@@ -59,4 +59,13 @@ public final class ChargePointSelect {
     public boolean isSoap() {
         return OcppTransport.SOAP == ocppTransport;
     }
+
+    @Override
+    public String toString() {
+        return "ChargePointSelect {" +
+                "ocppTransport=" + ocppTransport +
+                ", chargeBoxId='" + chargeBoxId + '\'' +
+                ", endpointAddress='" + endpointAddress + '\'' +
+                '}';
+    }
 }

@@ -25,6 +25,7 @@ import de.rwth.idsg.steve.config.WebSocketConfiguration;
 import de.rwth.idsg.steve.ocpp.CommunicationTask;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.util.CollectionUtils;
 
@@ -37,6 +38,8 @@ import java.util.List;
  * @author Sevket Goekay <sevketgokay@gmail.com>
  * @since 12.01.2015
  */
+
+@Slf4j
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class StringUtils {
 
@@ -59,7 +62,7 @@ public final class StringUtils {
 
         // http://stackoverflow.com/a/4886141
         s = s.replaceAll("(\\p{Ll})(\\p{Lu})", "$1 $2");
-
+        log.info("Operation Name identified is : {}", s);
         return s;
     }
 

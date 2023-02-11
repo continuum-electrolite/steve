@@ -68,14 +68,14 @@ public class ChargePointServiceInvoker {
         if (pair == null) {
             throw new SteveException("Action name is not found");
         }
-
+        log.info("Action Name identified: {}", pair.getAction());
         OcppJsonCall call = new OcppJsonCall();
         call.setMessageId(UUID.randomUUID().toString());
         call.setPayload(request);
         call.setAction(pair.getAction());
 
         FutureResponseContext frc = new FutureResponseContext(task, pair.getResponseClass());
-
+        log.info("Session: {} found for the chargeBoxId: {}", endpoint.getSession(chargeBoxId), chargeBoxId);
         CommunicationContext context = new CommunicationContext(endpoint.getSession(chargeBoxId), chargeBoxId);
         context.setOutgoingMessage(call);
         context.setFutureResponseContext(frc);

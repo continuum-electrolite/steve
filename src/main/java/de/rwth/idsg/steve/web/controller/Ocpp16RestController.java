@@ -21,6 +21,9 @@ package de.rwth.idsg.steve.web.controller;
 import de.rwth.idsg.steve.service.ChargePointHelperService;
 import de.rwth.idsg.steve.service.ChargePointService16_Client;
 import de.rwth.idsg.steve.web.dto.ocpp.*;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
@@ -38,80 +41,90 @@ import javax.validation.Valid;
  * @author Sevket Goekay <sevketgokay@gmail.com>
  * @since 15.03.2018
  */
+
+@Slf4j
 @RestController
 @RequestMapping(value = "/manager/operations/v1.6/rest")
 public class Ocpp16RestController {
-
     @Autowired
     @Qualifier("ChargePointService16_Client")
     private ChargePointService16_Client client16;
-
     @Autowired
     protected ChargePointHelperService chargePointHelperService;
-
-    // -------------------------------------------------------------------------
-    // Paths
-    // -------------------------------------------------------------------------
+    private static final String GET_COMPOSITE_PATH = "/GetCompositeSchedule";
+    private static final String CLEAR_CHARGING_PATH = "/ClearChargingProfile";
+    private static final String SET_CHARGING_PATH = "/SetChargingProfile";
     private static final String TRIGGER_MESSAGE_PATH = "/TriggerMessage";
     private static final String CHANGE_AVAIL_PATH = "/ChangeAvailability";
     protected static final String CHANGE_CONF_PATH = "/ChangeConfiguration";
     private static final String REMOTE_START_TX_PATH = "/RemoteStartTransaction";
     private static final String REMOTE_STOP_TX_PATH = "/RemoteStopTransaction";
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
-
     protected ChargePointService16_Client getClient16() {
-        return client16;
+        return this.client16;
     }
 
-    // -------------------------------------------------------------------------
-    // Http methods (POST)
-    // -------------------------------------------------------------------------
-
-    @PostMapping(value = TRIGGER_MESSAGE_PATH, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> postTriggerMessage(@Valid @RequestBody TriggerMessageParams params,
-                                                     BindingResult result) {
-        if (result.hasErrors()) {
-            return new ResponseEntity<>(result.toString(), HttpStatus.BAD_REQUEST);
-        }
-        return ResponseEntity.ok("TaskId: " + getClient16().triggerMessage(params));
+    @PostMapping(
+            value = {"/TriggerMessage"},
+            consumes = {"application/json"}
+    )
+    public ResponseEntity<String> postTriggerMessage(@RequestBody @Valid TriggerMessageParams params, BindingResult result) {
+        return result.hasErrors() ? new ResponseEntity(result.toString(), HttpStatus.BAD_REQUEST) : ResponseEntity.ok("TaskId: " + this.getClient16().triggerMessage(params));
     }
 
-    @PostMapping(value = CHANGE_AVAIL_PATH, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> postChangeAvail(@Valid @RequestBody ChangeAvailabilityParams params,
-                                                  BindingResult result) {
+    @PostMapping(
+            value = {"/ChangeAvailability"},
+            consumes = {"application/json"}
+    )
+    public ResponseEntity<String> postChangeAvail(@RequestBody @Valid ChangeAvailabilityParams params, BindingResult result) {
+        log.info("Received Change Avail Request: {}", params.getConnectorId());
         if (result.hasErrors()) {
-            return new ResponseEntity<>(result.toString(), HttpStatus.BAD_REQUEST);
+            log.error("Request is having errors.");
+            return new ResponseEntity(result.toString(), HttpStatus.BAD_REQUEST);
+        } else {
+            return ResponseEntity.ok("TaskId: " + this.getClient16().changeAvailability(params));
         }
-        return ResponseEntity.ok("TaskId: " + getClient16().changeAvailability(params));
     }
 
-    @PostMapping(value = CHANGE_CONF_PATH, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> postChangeConf(@Valid @RequestBody ChangeConfigurationParams params,
-                                                 BindingResult result) {
+    @PostMapping(
+            value = {"/ChangeConfiguration"},
+            consumes = {"application/json"}
+    )
+    public ResponseEntity<String> postChangeConf(@RequestBody @Valid ChangeConfigurationParams params, BindingResult result) {
+        log.info("Received Change Config Request: {}", params.getConfKey());
         if (result.hasErrors()) {
-            return new ResponseEntity<>(result.toString(), HttpStatus.BAD_REQUEST);
+            log.error("Request is having errors.");
+            return new ResponseEntity(result.toString(), HttpStatus.BAD_REQUEST);
+        } else {
+            return ResponseEntity.ok("TaskId: " + this.getClient16().changeConfiguration(params));
         }
-        return ResponseEntity.ok("TaskId: " + getClient16().changeConfiguration(params));
     }
 
-    @PostMapping(value = REMOTE_START_TX_PATH, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> postRemoteStartTx(@Valid @RequestBody RemoteStartTransactionParams params,
-                                                    BindingResult result) {
+    @PostMapping(
+            value = {"/RemoteStartTransaction"},
+            consumes = {"application/json"}
+    )
+    public ResponseEntity<String> postRemoteStartTx(@RequestBody @Valid RemoteStartTransactionParams params, BindingResult result) {
+        log.info("Received Remote Start Txn Request: {}", params.getIdTag());
         if (result.hasErrors()) {
-            return new ResponseEntity<>(result.toString(), HttpStatus.BAD_REQUEST);
+            log.error("Request is having errors. {}", result);
+            return new ResponseEntity(result.toString(), HttpStatus.BAD_REQUEST);
+        } else {
+            return ResponseEntity.ok("TaskId: " + this.getClient16().remoteStartTransaction(params));
         }
-        return ResponseEntity.ok("TaskId: " + getClient16().remoteStartTransaction(params));
     }
 
-    @PostMapping(value = REMOTE_STOP_TX_PATH, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> postRemoteStopTx(@Valid @RequestBody RemoteStopTransactionParams params,
-                                                   BindingResult result) {
+    @PostMapping(
+            value = {"/RemoteStopTransaction"},
+            consumes = {"application/json"}
+    )
+    public ResponseEntity<String> postRemoteStopTx(@RequestBody @Valid RemoteStopTransactionParams params, BindingResult result) {
+        log.info("Received Remote Stop Txn Request: {}", params.getTransactionId());
         if (result.hasErrors()) {
-            return new ResponseEntity<>(result.toString(), HttpStatus.BAD_REQUEST);
+            log.error("Request is having errors.");
+            return new ResponseEntity(result.toString(), HttpStatus.BAD_REQUEST);
+        } else {
+            return ResponseEntity.ok("TaskId: " + this.getClient16().remoteStopTransaction(params));
         }
-        return ResponseEntity.ok("TaskId: " + getClient16().remoteStopTransaction(params));
     }
 }

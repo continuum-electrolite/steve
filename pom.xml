@@ -1,5 +1,5 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>de.rwth.idsg</groupId>
     <artifactId>steve</artifactId>
@@ -90,7 +90,7 @@
     </profiles>
 
     <build>
-        <finalName>${project.artifactId}</finalName>
+        <finalName>continuum-cms</finalName>
         <resources>
             <resource>
                 <directory>src/main/resources/config/${envName}</directory>
@@ -108,7 +108,7 @@
         </resources>
 
         <plugins>
-            <plugin>
+            <!--plugin>
                 <groupId>com.mycila</groupId>
                 <artifactId>license-maven-plugin</artifactId>
                 <version>4.1</version>
@@ -132,8 +132,7 @@
                         <exclude>**/*.yaml</exclude>
                         <exclude>**/*.PNG</exclude>
                         <exclude>**/Dockerfile</exclude>
-                        <!-- <exclude>**/*.jsp</exclude> -->
-
+                        <exclude>**/*.jsp</exclude>
                     </excludes>
                     <mapping>
                         <java>SLASHSTAR_STYLE</java>
@@ -146,7 +145,7 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
+            </plugin -->
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -306,13 +305,12 @@
                     </execution>
                 </executions>
             </plugin>
-
-            <plugin>
+            <!--plugin>
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-maven-plugin</artifactId>
                 <version>7.15.0</version>
 
-                <!-- Must be in the same phase as Jooq -->
+                <!- Must be in the same phase as Jooq >
                 <executions>
                     <execution>
                         <phase>generate-sources</phase>
@@ -323,19 +321,19 @@
                 </executions>
 
                 <configuration>
-                    <!-- https://github.com/RWTH-i5-IDSG/steve/issues/157 -->
+                    <!- https://github.com/RWTH-i5-IDSG/steve/issues/157 ->
                     <initSql>SET default_storage_engine=InnoDB;</initSql>
-                    <!-- we need this because of extensions. they have a higher version number
+                    <!- we need this because of extensions. they have a higher version number
                          namespace reserved (e.g. 8.x.x). new migrations in core version should
-                         be executed in the extended version as well -->
+                         be executed in the extended version as well ->
                     <outOfOrder>true</outOfOrder>
 
-                    <!-- Because maven produces this warning after upgrading from 4.2.0 to 5.1.0:
+                    <!- Because maven produces this warning after upgrading from 4.2.0 to 5.1.0:
                          [WARNING] Could not find schema history table `stevedb`.`flyway_schema_history`, but found
                          `stevedb`.`schema_version` instead. You are seeing this message because Flyway changed its
                          default for flyway.table in version 5.0.0 to flyway_schema_history and you are still relying
                          on the old default (schema_version). Set flyway.table=schema_version in your configuration to
-                         fix this. This fallback mechanism will be removed in Flyway 6.0.0. -->
+                         fix this. This fallback mechanism will be removed in Flyway 6.0.0. ->
                     <table>schema_version</table>
 
                     <cleanDisabled>true</cleanDisabled>
@@ -350,7 +348,7 @@
                         <location>filesystem:src/main/resources/db/migration</location>
                     </locations>
                 </configuration>
-            </plugin>
+            </plugin -->
 
             <plugin>
                 <!-- Specify the maven code generator plugin -->
@@ -571,30 +569,19 @@
         <!-- Logging -->
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-api</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-slf4j18-impl</artifactId>
+            <artifactId>log4j-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j-impl</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-web</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>2.0.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>jcl-over-slf4j</artifactId>
-            <version>2.0.0</version>
         </dependency>
         <dependency>
             <groupId>com.lmax</groupId>
