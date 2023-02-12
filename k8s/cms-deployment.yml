@@ -1,0 +1,23 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cms-deployment
+  namespace: kube-system
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cms-deployment
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cms-deployment
+    spec:
+      containers:
+      - image: 683563489644.dkr.ecr.ap-south-1.amazonaws.com/continuum-electrolyte-ecr:cms20230212
+        imagePullPolicy: Always
+        name: cms-deployment
+        ports:
+        - name: http
+          containerPort: 80

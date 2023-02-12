@@ -25,6 +25,7 @@ import de.rwth.idsg.steve.ocpp.task.GetCompositeScheduleTask;
 import de.rwth.idsg.steve.ocpp.task.GetConfigurationTask;
 import de.rwth.idsg.steve.repository.TaskStore;
 import de.rwth.idsg.steve.repository.dto.TaskOverview;
+import lombok.extern.slf4j.Slf4j;
 import ocpp.cp._2015._10.GetCompositeScheduleResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -34,12 +35,14 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author Sevket Goekay <sevketgokay@gmail.com>
  * @since 29.12.2014
  */
-@Controller
+@Slf4j
+@RestController
 @RequestMapping(value = "/manager/operations/rest/tasks")
 public class TaskRestController {
 
@@ -70,6 +73,7 @@ public class TaskRestController {
     @GetMapping(value = TASK_ID_PATH, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<TaskOverview> getTaskDetails(@PathVariable("taskId") Integer taskId) {
         CommunicationTask r = taskStore.get(taskId);
+        log.info("Is task found for taskId: {}? {}", taskId, Objects.nonNull(r));
         return ResponseEntity.ok(TaskOverview.builder()
                 .taskId(taskId)
                 .origin(r.getOrigin())
@@ -80,37 +84,28 @@ public class TaskRestController {
                 .build());
     }
 
-    @GetMapping(value = TASK_DETAILS_PATH)
-    public String getDetailsForChargeBox(@PathVariable("taskId") Integer taskId,
+    @GetMapping(value = TASK_DETAILS_PATH, produces = MediaType.APPLICATION_JSON_VALUE)
+    public Object getDetailsForChargeBox(@PathVariable("taskId") Integer taskId,
                                          @PathVariable("chargeBoxId") String chargeBoxId) {
-
         CommunicationTask r = taskStore.get(taskId);
-
+        log.info("Is task found for taskId: {}, chargeBoxId: {}? {}", taskId, chargeBoxId, Objects.nonNull(r));
         if (r instanceof GetCompositeScheduleTask) {
-            return processForGetCompositeScheduleTask((GetCompositeScheduleTask) r, chargeBoxId, model);
+            return processForGetCompositeScheduleTask((GetCompositeScheduleTask) r, chargeBoxId);
         } else if (r instanceof GetConfigurationTask) {
-            return processForGetConfigurationTask((GetConfigurationTask) r, chargeBoxId, model);
+            return processForGetConfigurationTask((GetConfigurationTask) r, chargeBoxId);
         } else {
             throw new SteveException("Task not found");
         }
     }
 
-    private String processForGetCompositeScheduleTask(GetCompositeScheduleTask k, String chargeBoxId, Model model) {
+    private GetCompositeScheduleResponse processForGetCompositeScheduleTask(GetCompositeScheduleTask k, String chargeBoxId) {
         RequestResult result = extractResult(k, chargeBoxId);
-        GetCompositeScheduleResponse response = result.getDetails();
-
-        model.addAttribute("chargeBoxId", chargeBoxId);
-        model.addAttribute("response", response);
-        return "op16/GetCompositeScheduleResponse";
+        return  result.getDetails();
     }
 
-    private String processForGetConfigurationTask(GetConfigurationTask k, String chargeBoxId, Model model) {
+    private String processForGetConfigurationTask(GetConfigurationTask k, String chargeBoxId) {
         RequestResult result = extractResult(k, chargeBoxId);
-        GetConfigurationTask.ResponseWrapper response = result.getDetails();
-
-        model.addAttribute("chargeBoxId", chargeBoxId);
-        model.addAttribute("response", response);
-        return "GetConfigurationResponse";
+        return result.getDetails();
     }
 
     private static RequestResult extractResult(CommunicationTask<?, ?> task, String chargeBoxId) {

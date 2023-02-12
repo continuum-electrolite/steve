@@ -9,10 +9,13 @@ import de.rwth.idsg.steve.web.dto.ChargePointForm;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
+
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,29 +27,26 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Slf4j
 @RestController
-@RequestMapping({"/manager/chargepoints/rest"})
+@RequestMapping(value = {"/manager/chargepoints/rest"})
 public class ChargePointRestController {
-    private static final Logger log = LoggerFactory.getLogger(ChargePointRestController.class);
     @Autowired
     protected ChargePointRepository chargePointRepository;
     @Autowired
     protected ChargePointHelperService chargePointHelperService;
 
-    public ChargePointRestController() {
-    }
-
     @PostMapping(
             consumes = {"application/json"}
     )
     public ResponseEntity<String> add(@RequestBody ChargePointDetailsDTO chargePointDetailsDTO) {
-        log.info("ChargePoint Location Request body: {}", chargePointDetailsDTO);
+        log.info("Received Add ChargePoint Location Request with body: {}", chargePointDetailsDTO);
         if (chargePointDetailsDTO.isValid()) {
             int id = this.chargePointRepository.addChargePoint(this.toChargePointForm(chargePointDetailsDTO));
             this.chargePointHelperService.removeUnknown(Collections.singletonList(chargePointDetailsDTO.getChargeBoxId()));
-            return new ResponseEntity("ChangePoint added with id: " + id, HttpStatus.CREATED);
+            return new ResponseEntity<>("ChangePoint added with id: " + id, HttpStatus.CREATED);
         } else {
-            return new ResponseEntity("Invalid Request Body [latitude (-90 <-> +90), longitude(-180 <-> 180), chargeBoxId, Address mandatory.]", HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>("Invalid Request Body [latitude (-90 <-> +90), longitude(-180 <-> 180), chargeBoxId, Address mandatory.]", HttpStatus.BAD_REQUEST);
         }
     }
 
@@ -55,21 +55,23 @@ public class ChargePointRestController {
             consumes = {"application/json"}
     )
     public ResponseEntity<String> update(@RequestBody ChargePointDetailsDTO chargePointDetailsDTO, @PathVariable("chargeBoxPKID") int chargeBoxPKId) {
+        log.info("Received Update ChargePoint Location Request with body: {} for chargeBoxPKId: {}", chargePointDetailsDTO, chargeBoxPKId);
         if (chargePointDetailsDTO.isValid()) {
             ChargePointForm chargePointForm = this.toChargePointForm(chargePointDetailsDTO);
             chargePointForm.setChargeBoxPk(chargeBoxPKId);
             this.chargePointRepository.updateChargePoint(chargePointForm);
             this.chargePointHelperService.removeUnknown(Collections.singletonList(chargePointDetailsDTO.getChargeBoxId()));
-            return new ResponseEntity("ChangePoint added", HttpStatus.CREATED);
+            return new ResponseEntity<>("ChangePoint added", HttpStatus.CREATED);
         } else {
-            return new ResponseEntity("Invalid Request Body [latitude (-90 <-> +90), longitude(-180 <-> 180), chargeBoxId, Address mandatory.]", HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>("Invalid Request Body [latitude (-90 <-> +90), longitude(-180 <-> 180), chargeBoxId, Address mandatory.]", HttpStatus.BAD_REQUEST);
         }
     }
 
     @DeleteMapping({"/{chargeBoxPKID}"})
     public ResponseEntity<String> delete(@PathVariable("chargeBoxPKID") int chargeBoxPKId) {
+        log.info("Received Delete ChargePoint Location Request for chargeBoxPKId: {}", chargeBoxPKId);
         this.chargePointRepository.deleteChargePoint(chargeBoxPKId);
-        return new ResponseEntity("ChangePoint deleted.", HttpStatus.OK);
+        return new ResponseEntity<>("ChangePoint deleted.", HttpStatus.OK);
     }
 
     @GetMapping(
@@ -77,10 +79,11 @@ public class ChargePointRestController {
             produces = {"application/json"}
     )
     public ResponseEntity<ChargePointDetailsDTO> get(@PathVariable("chargeBoxPKID") int chargeBoxPKID) {
+        log.info("Received Get ChargePoint Location Request for chargeBoxPKId: {}", chargeBoxPKID);
         try {
-            return new ResponseEntity(this.chargePointRepository.getChargePointDetails(chargeBoxPKID), HttpStatus.OK);
+            return new ResponseEntity<>(this.chargePointRepository.getChargePointDetails(chargeBoxPKID), HttpStatus.OK);
         } catch (Exception var3) {
-            return new ResponseEntity(HttpStatus.NOT_FOUND);
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
     }
 
@@ -89,7 +92,8 @@ public class ChargePointRestController {
             produces = {"application/json"}
     )
     public ResponseEntity<List<ChargePointDetailsDTO>> list(@RequestParam("status") String status) {
-        return new ResponseEntity(this.chargePointRepository.list(status), HttpStatus.OK);
+        log.info("Received request for Charge Points details with status {}", status);
+        return new ResponseEntity<>(this.chargePointRepository.list(status), HttpStatus.OK);
     }
 
     private ChargePointForm toChargePointForm(ChargePointDetailsDTO chargePointDetailsDTO) {
