@@ -65,7 +65,7 @@ public class SessionContextStore {
             Deque<SessionContext> endpointDeque = lookupTable.computeIfAbsent(chargeBoxId, str -> new ArrayDeque<>());
             endpointDeque.addLast(context); // Adding at the end
 
-            log.debug("A new SessionContext is stored for chargeBoxId '{}'. Store size: {}",
+            log.info("A new SessionContext is stored for chargeBoxId '{}'. Store size: {}",
                     chargeBoxId, endpointDeque.size());
         } finally {
             l.unlock();
@@ -119,6 +119,7 @@ public class SessionContextStore {
         try {
             Deque<SessionContext> endpointDeque = lookupTable.get(chargeBoxId);
             if (endpointDeque == null) {
+                log.warn("No Session found in lookUpTable for chargeBoxId: {}", chargeBoxId);
                 throw new NoSuchElementException();
             }
             return wsSessionSelectStrategy.getSession(endpointDeque);

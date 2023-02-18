@@ -5,7 +5,7 @@ metadata:
   name: cms-deployment
   namespace: kube-system
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: cms-deployment
@@ -15,9 +15,16 @@ spec:
         app.kubernetes.io/name: cms-deployment
     spec:
       containers:
-      - image: 683563489644.dkr.ecr.ap-south-1.amazonaws.com/continuum-electrolyte-ecr:cms20230212
+      - image: 683563489644.dkr.ecr.ap-south-1.amazonaws.com/continuum-electrolyte-ecr:cms20230214
         imagePullPolicy: Always
         name: cms-deployment
+        resources:
+          requests:
+            memory: "2048Mi"
+            cpu: "500m"
+          limits:
+            memory: "3072Mi"
+            cpu: "1000m" 
         ports:
         - name: http
           containerPort: 80

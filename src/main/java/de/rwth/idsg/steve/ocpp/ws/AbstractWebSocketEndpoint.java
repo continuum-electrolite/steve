@@ -28,6 +28,7 @@ import de.rwth.idsg.steve.ocpp.ws.pipeline.IncomingPipeline;
 import de.rwth.idsg.steve.repository.OcppServerRepository;
 import de.rwth.idsg.steve.service.notification.OcppStationWebSocketConnected;
 import de.rwth.idsg.steve.service.notification.OcppStationWebSocketDisconnected;
+import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
@@ -53,6 +54,7 @@ import java.util.function.Consumer;
  * @author Sevket Goekay <sevketgokay@gmail.com>
  * @since 17.03.2015
  */
+@Slf4j
 public abstract class AbstractWebSocketEndpoint extends ConcurrentWebSocketHandler implements SubProtocolCapable {
 
     @Autowired private ScheduledExecutorService service;
@@ -125,7 +127,7 @@ public abstract class AbstractWebSocketEndpoint extends ConcurrentWebSocketHandl
     @Override
     public void onOpen(WebSocketSession session) throws Exception {
         String chargeBoxId = getChargeBoxId(session);
-
+        log.info("Websocket connection opened for chargeBoxId: {}", chargeBoxId);
         WebSocketLogger.connected(chargeBoxId, session);
         ocppServerRepository.updateOcppProtocol(chargeBoxId, getVersion().toProtocol(OcppTransport.JSON));
 
@@ -143,11 +145,13 @@ public abstract class AbstractWebSocketEndpoint extends ConcurrentWebSocketHandl
 
         synchronized (sessionContextLock) {
             sizeBeforeAdd = sessionContextStore.getSize(chargeBoxId);
+            log.info("Adding session for chargeBoxId: {}, session Id: {} and URI: {}", chargeBoxId, session.getId(), session.getUri());
             sessionContextStore.add(chargeBoxId, session, pingSchedule);
         }
 
         // Take into account that there might be multiple connections to a charging station.
         // Send notification only for the change 0 -> 1.
+        log.info("Size before Add {}: ", sizeBeforeAdd);
         if (sizeBeforeAdd == 0) {
             connectedCallbackList.forEach(consumer -> consumer.accept(chargeBoxId));
         }

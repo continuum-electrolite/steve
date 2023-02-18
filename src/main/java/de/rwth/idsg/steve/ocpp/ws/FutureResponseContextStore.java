@@ -68,7 +68,7 @@ public class FutureResponseContextStore {
 
     private Map<String, FutureResponseContext> addIfAbsent(WebSocketSession session) {
         return lookupTable.computeIfAbsent(session, innerSession -> {
-            log.debug("Creating new store for sessionId '{}'", innerSession.getId());
+            log.info("Creating new store for sessionId '{}'", innerSession.getId());
             return new ConcurrentHashMap<>();
         });
     }
